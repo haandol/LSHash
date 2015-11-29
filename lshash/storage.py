@@ -30,6 +30,8 @@ def storage(storage_config, index):
     elif 'redis' in storage_config:
         storage_config['redis']['db'] = index
         return RedisStorage(storage_config['redis'])
+    elif 'elasticsearch' in storage_config:
+        return ElasticStorage(storage_config['elasticsearch'])
     else:
         raise ValueError("Only in-memory dictionary and Redis are supported.")
 
@@ -126,7 +128,12 @@ class ElasticStorage(BaseStorage):
         return self.storage.keys(pattern)
 
     def set_val(self, key, val):
-        self.storage.index(index='sift', body={'key': key, 'val': val})
+        body = {
+            'key': key,
+            'val': ','.join(map(str, val[0])),
+            'extra': str(val[1])
+        }
+        self.storage.index(index='sift', doc_type='sift', body=body)
 
     def get_val(self, key):
         s = Search(using=self.storage, index='sift')
