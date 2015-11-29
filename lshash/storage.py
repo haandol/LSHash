@@ -11,6 +11,13 @@ try:
 except ImportError:
     redis = None
 
+try:
+    from elasticsearch import Elasticsearch
+    from elasticsearch_dsl import Search
+except:
+    Elasticsearch = None
+    Search = None
+
 __all__ = ['storage']
 
 
@@ -103,3 +110,30 @@ class RedisStorage(BaseStorage):
 
     def get_list(self, key):
         return self.storage.lrange(key, 0, -1)
+
+
+class ElasticStorage(BaseStorage):
+    def __init__(self, config):
+        if not Elasticsearch:
+            raise ImportError("elasticsearch-py is required to use Elasticsearch as storage.")
+        if not Search:
+            raise ImportError("elasticsearch_dsl is required to use Elasticsearch as storage.")
+
+        self.name = 'elasticsearch'
+        self.storage = Elasticsearch(**config)
+
+    def keys(self, pattern="*"):
+        return self.storage.keys(pattern)
+
+    def set_val(self, key, val):
+        self.storage.index(index='sift', body={'key': key, 'val': val})
+
+    def get_val(self, key):
+        s = Search(using=self.storage, index='sift')
+        return s.filter('term', key=key).execute().hits.hits
+
+    def append_val(self, key, val):
+        self.set_val(key, val)
+
+    def get_list(self, key):
+        return self.get_val(key)
